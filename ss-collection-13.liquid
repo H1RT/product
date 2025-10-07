@@ -180,11 +180,21 @@ For inquiries or permissions, contact daniel@section.store
   }
   
   .collection-media-{{ section.id }} {
+    --media-lift-distance: clamp(12px, 2.8vw, 22px);
+    --media-scale: 1;
+    --media-translate-x: 0px;
+    --media-translate-y: 0px;
+    --media-parallax-offset: 0px;
+    --media-tilt-x: 0deg;
+    --media-tilt-y: 0deg;
     position: relative;
     overflow: hidden;
     border: {{ media_border_thickness }}px solid {{ media_border_color }};
     border-radius: {{ media_radius }}px;
-    display: block;
+    display: grid;
+    place-items: stretch;
+    transform-style: preserve-3d;
+    perspective: 1200px;
   }
 
   .collection-media-video-{{ section.id }} {
@@ -225,6 +235,23 @@ For inquiries or permissions, contact daniel@section.store
     border-radius: inherit;
   }
 
+  .collection-media-{{ section.id }} > img,
+  .collection-media-{{ section.id }} > svg,
+  .collection-media-{{ section.id }} > video,
+  .collection-media-{{ section.id }} > iframe,
+  .collection-media-{{ section.id }} > .collection-media-video-{{ section.id }} {
+    grid-area: 1 / 1;
+    position: relative;
+    z-index: 1;
+    transform-origin: center bottom;
+    transform: translate3d(var(--media-translate-x), calc(var(--media-translate-y) + var(--media-parallax-offset)), 0)
+      rotateX(var(--media-tilt-x))
+      rotateY(var(--media-tilt-y))
+      scale(var(--media-scale));
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), filter 0.45s ease;
+    will-change: transform;
+  }
+
   .collection-media-{{ section.id }} svg {
     background-color: #AFAFAF;
   }
@@ -237,6 +264,64 @@ For inquiries or permissions, contact daniel@section.store
     height: 100%;
     left: 0;
     top: 0;
+  }
+
+  .collection-media-{{ section.id }}::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(17, 17, 26, 0) 35%, rgba(17, 17, 26, 0.32) 100%);
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+    transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .collection-media-{{ section.id }}:focus-within {
+    --media-scale: 1.02;
+    --media-translate-y: calc(var(--media-lift-distance) * -1);
+  }
+
+  .collection-media-{{ section.id }}:focus-within::after {
+    opacity: 1;
+    transform: translate3d(0, calc(var(--media-lift-distance) * 0.4), 0);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .collection-media-{{ section.id }}:hover,
+    .collection-media-{{ section.id }}.is-hovered {
+      --media-scale: 1.03;
+      --media-translate-y: calc(var(--media-lift-distance) * -1);
+    }
+
+    .collection-media-{{ section.id }}:hover::after,
+    .collection-media-{{ section.id }}.is-hovered::after {
+      opacity: 1;
+      transform: translate3d(0, calc(var(--media-lift-distance) * 0.4), 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .collection-media-{{ section.id }} {
+      --media-lift-distance: 0px;
+    }
+
+    .collection-media-{{ section.id }} > img,
+    .collection-media-{{ section.id }} > svg,
+    .collection-media-{{ section.id }} > video,
+    .collection-media-{{ section.id }} > iframe,
+    .collection-media-{{ section.id }} > .collection-media-video-{{ section.id }} {
+      transition: none;
+      transform: none;
+    }
+
+    .collection-media-{{ section.id }}::after {
+      transition: none;
+      opacity: 0;
+      transform: none;
+    }
   }
 
   .collection-slide-content-{{ section.id }} {
@@ -771,11 +856,6 @@ For inquiries or permissions, contact daniel@section.store
 
 {% comment %} PREVIEW {% endcomment %}
 <style>
-a:hover img {
-  transform: translateY(-10px);
-  transition: transform 0.3s ease;
-}
-
 /* --- Corner Ribbon: Top Right, diagonal, works with overflow:hidden --- */
 
 /* make sure the media wrapper is the positioning context */
@@ -1060,6 +1140,119 @@ a:hover img {
     });
 
     
+    const pointerMediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+    let supportsFinePointer = pointerMediaQuery.matches;
+
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+    const updateParallaxPosition = (event, card) => {
+      const rect = card.getBoundingClientRect();
+
+      if (!rect.width || !rect.height) {
+        return;
+      }
+
+      const relativeX = (event.clientX - rect.left) / rect.width;
+      const relativeY = (event.clientY - rect.top) / rect.height;
+
+      if (!Number.isFinite(relativeX) || !Number.isFinite(relativeY)) {
+        return;
+      }
+
+      const rotateX = clamp((0.5 - relativeY) * 8, -8, 8);
+      const rotateY = clamp((relativeX - 0.5) * 8, -8, 8);
+      const translateX = clamp((relativeX - 0.5) * 16, -16, 16);
+      const parallaxOffsetY = clamp((0.5 - relativeY) * 10, -10, 10);
+
+      card.style.setProperty('--media-tilt-x', `${rotateX.toFixed(2)}deg`);
+      card.style.setProperty('--media-tilt-y', `${rotateY.toFixed(2)}deg`);
+      card.style.setProperty('--media-translate-x', `${translateX.toFixed(2)}px`);
+      card.style.setProperty('--media-parallax-offset', `${parallaxOffsetY.toFixed(2)}px`);
+    };
+
+    const initParallaxHover = () => {
+      const mediaCards = document.querySelectorAll(`.collection-media-${sectionId}`);
+
+      mediaCards.forEach((card) => {
+        if (!card._collectionParallaxReset) {
+          const resetCardState = () => {
+            card.classList.remove('is-hovered');
+            card.style.removeProperty('--media-translate-x');
+            card.style.removeProperty('--media-parallax-offset');
+            card.style.removeProperty('--media-tilt-x');
+            card.style.removeProperty('--media-tilt-y');
+          };
+
+          card._collectionParallaxReset = resetCardState;
+
+          card.addEventListener('focusin', () => {
+            card.classList.add('is-hovered');
+          });
+
+          card.addEventListener('focusout', resetCardState);
+        }
+
+        if (!supportsFinePointer || card._collectionParallaxPointerInitialized) {
+          return;
+        }
+
+        const resetCardState = card._collectionParallaxReset;
+
+        card._collectionParallaxPointerInitialized = true;
+
+        card.addEventListener('pointerenter', (event) => {
+          if (!event.isPrimary || event.pointerType === 'touch') {
+            return;
+          }
+
+          card.classList.add('is-hovered');
+          updateParallaxPosition(event, card);
+        });
+
+        card.addEventListener('pointermove', (event) => {
+          if (!event.isPrimary || event.pointerType === 'touch') {
+            return;
+          }
+
+          updateParallaxPosition(event, card);
+        });
+
+        card.addEventListener('pointerleave', resetCardState);
+        card.addEventListener('pointercancel', resetCardState);
+      });
+    };
+
+    initParallaxHover();
+
+    const handlePointerPreferenceChange = (event) => {
+      supportsFinePointer = event.matches;
+      initParallaxHover();
+    };
+
+    const pointerMediaHandlerKey = `collection13-${sectionId}`;
+
+    if (!pointerMediaQuery._collection13Handlers) {
+      pointerMediaQuery._collection13Handlers = {};
+    }
+
+    const previousHandler = pointerMediaQuery._collection13Handlers[pointerMediaHandlerKey];
+
+    if (previousHandler) {
+      if (typeof pointerMediaQuery.removeEventListener === 'function') {
+        pointerMediaQuery.removeEventListener('change', previousHandler);
+      } else if (typeof pointerMediaQuery.removeListener === 'function') {
+        pointerMediaQuery.removeListener(previousHandler);
+      }
+    }
+
+    pointerMediaQuery._collection13Handlers[pointerMediaHandlerKey] = handlePointerPreferenceChange;
+
+    if (typeof pointerMediaQuery.addEventListener === 'function') {
+      pointerMediaQuery.addEventListener('change', handlePointerPreferenceChange);
+    } else if (typeof pointerMediaQuery.addListener === 'function') {
+      pointerMediaQuery.addListener(handlePointerPreferenceChange);
+    }
+
     const collectionsMedia = document.querySelectorAll(`.collection-media-video-${sectionId}`);
     
     function handleMediaActions() {
