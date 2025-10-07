@@ -771,10 +771,80 @@ For inquiries or permissions, contact daniel@section.store
 
 {% comment %} PREVIEW {% endcomment %}
 <style>
-a:hover img {
-  transform: translateY(-10px);
-  transition: transform 0.3s ease;
-}
+  .collection-slide-{{ section.id }} {
+    perspective: 1200px;
+  }
+
+  .collection-media-{{ section.id }} {
+    --lift-distance: clamp(8px, 2vw, 16px);
+    position: relative;
+    overflow: hidden;
+    display: block;
+    transform-style: preserve-3d;
+  }
+
+  .collection-media-{{ section.id }} img,
+  .collection-media-{{ section.id }} svg,
+  .collection-media-{{ section.id }} video,
+  .collection-media-{{ section.id }} iframe {
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .collection-media-{{ section.id }}::before {
+    content: "";
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    bottom: clamp(6px, 1.2vw, 14px);
+    height: clamp(12px, 4vw, 26px);
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.25), transparent 70%);
+    filter: blur(12px);
+    opacity: 0;
+    transform: translate3d(0, 45%, -1px);
+    transition: opacity 0.45s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+
+  .collection-media-{{ section.id }}::after {
+    content: "";
+    position: absolute;
+    inset: -20% -20% 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.35) 80%);
+    opacity: 0;
+    transform: translate3d(0, 12%, -2px);
+    transition: opacity 0.5s ease, transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+
+  .collection-media-{{ section.id }}:hover img,
+  .collection-media-{{ section.id }}:hover svg,
+  .collection-media-{{ section.id }}:hover video,
+  .collection-media-{{ section.id }}:hover iframe,
+  .collection-media-{{ section.id }}:focus-visible img,
+  .collection-media-{{ section.id }}:focus-visible svg,
+  .collection-media-{{ section.id }}:focus-visible video,
+  .collection-media-{{ section.id }}:focus-visible iframe {
+    transform: translate3d(0, calc(var(--lift-distance) * -1), 24px) scale(1.03);
+  }
+
+  .collection-media-{{ section.id }}:hover::before,
+  .collection-media-{{ section.id }}:focus-visible::before {
+    opacity: 0.45;
+    transform: translate3d(0, 0, -1px) scale(1.05);
+  }
+
+  .collection-media-{{ section.id }}:hover::after,
+  .collection-media-{{ section.id }}:focus-visible::after {
+    opacity: 1;
+    transform: translate3d(0, 0, -2px);
+  }
+
+  @media (max-width: 767px) {
+    .collection-media-{{ section.id }} {
+      --lift-distance: clamp(6px, 4vw, 12px);
+    }
+  }
 
 /* --- Corner Ribbon: Top Right, diagonal, works with overflow:hidden --- */
 
